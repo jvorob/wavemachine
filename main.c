@@ -3,11 +3,14 @@
 #include <SDL2/SDL.h>
 
 
+#include "sim.h"
+
 #define pi 3.14159265358979323
 
 SDL_Renderer *setupWindow();
 Uint32 timercallback(Uint32 interval, void *param);
 void cleanup();
+void draw(SDL_Renderer *r, sim_Sim *s);
 
 
 SDL_Renderer *ren;
@@ -23,17 +26,26 @@ int main(int argc, char **argv){
 		exit(-1);
 	}
 
-	SDL_AddTimer(10, timercallback, NULL);
+	SDL_AddTimer(100, timercallback, NULL);
 
 	int quit = 0;
 	SDL_Event e;
 
-	SDL_Point point;
-	point.x = 320;
-	point.y = 240;
-	double theta = 0;
-	double pointerlength = 50;
-	double dtheta = 0.5;
+	int WIDTH = 10, HEIGHT = 10;
+	sim_Sim *mysim = sim_CreateSimulation(WIDTH, HEIGHT, 50.0);
+	mysim->curr[0].height = 256;
+	mysim->curr[1].height = 256;
+	mysim->curr[2].height = 256;
+	mysim->curr[3].height = 256;
+	mysim->curr[4].height = 256;
+	mysim->curr[5].height = 256;
+	mysim->curr[8].height = 256;
+	mysim->curr[WIDTH * HEIGHT - 1].height = 256;
+	mysim->curr[WIDTH * HEIGHT - 2].height = 256;
+	mysim->curr[WIDTH * HEIGHT - 3].height = 256;
+	mysim->curr[WIDTH * HEIGHT - 4].height = 256;
+	mysim->curr[WIDTH * HEIGHT - 5].height = 256;
+	mysim->curr[WIDTH * HEIGHT - 6].height = 256;
 
 	int temp;
 
@@ -44,20 +56,8 @@ int main(int argc, char **argv){
 				quit = 1;
 				break;
 			} else if(e.type == SDL_USEREVENT) {
-
-				SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
-				SDL_RenderClear(ren);
-
-
-				int dx = (int)(cos(theta * 2 * pi / 360) * pointerlength);
-				int dy = (int)(sin(theta * 2 * pi / 360) * pointerlength);
-
-				SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
-				SDL_RenderDrawLine(ren, point.x, point.y, point.x + dx, point.y + dy);
-				SDL_RenderPresent(ren);
-
-
-				theta+= dtheta;
+				draw(ren, mysim);
+				sim_step(mysim);
 				timerlock = 0;
 			}
 		}
@@ -66,6 +66,78 @@ int main(int argc, char **argv){
 
 	cleanup();
 	return 0;
+}
+
+void draw(SDL_Renderer *r, sim_Sim *s) {
+	int i, j;
+	int rectwidth = 32, rectheight = 32;
+	int debugprint = 1;
+	int drawflow = 1;
+	sim_Cell *cell;
+	SDL_Rect rect;
+	rect.w = rectwidth;
+	rect.h = rectheight;
+
+	SDL_SetRenderDrawColor(r, 200, 255, 200, 255);
+	SDL_RenderClear(r);
+
+	for(i = 0; i < s->h; i++) {
+		for(j = 0; j < s->w; j++) {
+			cell = &(cellAt(j,i,s));
+
+			int rg = 255 - (int)cell->height;
+			rg = rg < 0 ? 0 : rg;
+			rect.x = j * rectwidth;
+			rect.y = i * rectheight;
+
+			SDL_SetRenderDrawColor(ren, rg, rg, 255, 255); 
+			SDL_RenderFillRect(ren, &rect);
+
+			SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+
+
+			if(debugprint) fprintf(stderr,"%4.0lf ", cell->height);
+		}
+		if(debugprint) fprintf(stderr,"\n");
+	}	
+	if(debugprint) fprintf(stderr, "\nAvgheight:%lf\n---\n\n", sim_avgheight(s));
+	if(debugprint) fprintf(stderr, "\n---\n\n");
+
+	if(drawflow)
+		for(i = 0; i < s->h; i++) {
+			for(j = 0; j < s->w; j++) {
+				cell = &(cellAt(j,i,s));
+				rect.x = j * rectwidth;
+				rect.y = i * rectheight;
+				int len;
+				len = cell->flow[RT];
+				SDL_RenderDrawLine(ren, 
+					rect.x + rectwidth / 2,
+					rect.y + rectheight / 2,
+					rect.x + rectwidth / 2 + len,
+					rect.y + rectheight / 2);
+				len = cell->flow[LF];
+				SDL_RenderDrawLine(ren, 
+					rect.x + rectwidth / 2,
+					rect.y + rectheight / 2,
+					rect.x + rectwidth / 2 - len,
+					rect.y + rectheight / 2);
+				len = cell->flow[DN];
+				SDL_RenderDrawLine(ren, 
+					rect.x + rectwidth / 2,
+					rect.y + rectheight / 2,
+					rect.x + rectwidth / 2,
+					rect.y + rectheight / 2 + len);
+				len = cell->flow[UP];
+				SDL_RenderDrawLine(ren, 
+					rect.x + rectwidth / 2,
+					rect.y + rectheight / 2,
+					rect.x + rectwidth / 2,
+					rect.y + rectheight / 2 - len);
+			}
+		}
+
+	SDL_RenderPresent(r);
 }
 
 void cleanup() {

@@ -11,11 +11,15 @@ EXE = FluidTest
 
 all: $(EXE)
 
-$(EXE): main.o
-	$(CXX) $< $(LDFLAGS) -o $@
+$(EXE): main.o sim.o
+	$(CXX) $^ $(LDFLAGS) -o $@
 
-main.o: main.c
+main.o: main.c sim.h
 	$(CXX) $(CXXFLAGS) $< -o $@
+
+sim.o: sim.c sim.h
+	$(CXX) $(CXXFLAGS) $< -o $@
+
 
 run: all
 	./$(EXE)
