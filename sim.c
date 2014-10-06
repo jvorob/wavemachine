@@ -9,8 +9,8 @@ void _reset_buffer(sim_Sim *s);
 void _swap_buffers(sim_Sim *s);
 
 
-#define FLOWCONSTANT 10.0 //Multiplier for delta pressure -> flow
-#define FLOWEQUALIZINGRATE 1.0 //Multiplier for how easy it is to change flow
+#define FLOWCONSTANT 2.0 //Multiplier for delta pressure -> flow
+#define FLOWEQUALIZINGRATE 0.05 //Multiplier for how easy it is to change flow
 
 
 void _createflow(sim_Sim *s, int x, int y, double time) {//time elapsed in seconds
@@ -56,7 +56,7 @@ void _createflow(sim_Sim *s, int x, int y, double time) {//time elapsed in secon
 		double temp = FLOWCONSTANT * sqrt(fabs(heightdiff[i])) * (heightdiff[i] < 0 ? 1 : -1);
 		double flowdiff;
 		flowdiff = temp - bc->flow[i];
-		bc->flow[i] += time * flowdiff;
+		bc->flow[i] += time * FLOWEQUALIZINGRATE * flowdiff;
 		netflow += bc->flow[i];
 	}
 

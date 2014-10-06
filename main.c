@@ -7,18 +7,29 @@
 
 #define pi 3.14159265358979323
 
-#define WIDTH 10
-#define HEIGHT 10
-#define CELLSIZE 32
-#define TICKTIME 0.1
+#define WIDTH 30
+#define HEIGHT 30
+#define CELLSIZE 8
+#define TICKTIME 0.2
+#define TIMERINTERVAL 20
+#define STEPSPERTICK 3
+
+#define WINDOW_W 1000
+#define WINDOW_H 800
+
+#define DRAWFLOW 0
 
 SDL_Renderer *setupWindow();
 Uint32 timercallback(Uint32 interval, void *param);
 void cleanup();
 void drawGrid(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport);
+void drawIso(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport);
 void drawTools(SDL_Renderer *r, int selected, int hovered, SDL_Rect *viewport);
 void doMouseEvent(SDL_Event *e, int *selected, int *hovered, sim_Sim *s);
 void printGrid(sim_Sim *s);
+
+void starttimer();
+void stoptimer();
 
 int SDL_PointInRect(SDL_Point *p, SDL_Rect *r) {
 	return (int)(p->x >= r->x && p->y >= r->y && p->x <= r->x + r->w && p->y <= r->y + r->h);
@@ -32,17 +43,20 @@ struct timerparams {
 
 
 SDL_Texture *iconText;
-SDL_Rect gridviewport, toolbox;
+SDL_Texture *isoText;
+SDL_Rect gridviewport, isoviewport, toolbox;
 
 int main(int argc, char *argv[]){
+	int i;
 	struct timerparams tparams;
 	SDL_Event e;
 	sim_Sim *mysim;
 	SDL_Renderer *ren;
 	int temp;
-	SDL_Surface *iconSurf;
+	SDL_Surface *iconSurf, *isoSurf;
 	SDL_TimerID timerid;
 	int selected, hovered;
+	Uint32 updatetime;
 
 	selected = 0;
 	hovered = -1;
@@ -51,6 +65,9 @@ int main(int argc, char *argv[]){
 	gridviewport.y = 0;
 	gridviewport.w = WIDTH * CELLSIZE;
 	gridviewport.h = HEIGHT * CELLSIZE;
+
+	isoviewport.x = 400;
+	isoviewport.y = 400;
 
 	toolbox.x = 0;
 	toolbox.y = 0;
@@ -64,13 +81,16 @@ int main(int argc, char *argv[]){
 	iconSurf = SDL_LoadBMP("icons.bmp");
 	iconText = SDL_CreateTextureFromSurface(ren, iconSurf);
 
+	isoSurf = SDL_LoadBMP("tile.bmp");
+	isoText = SDL_CreateTextureFromSurface(ren, isoSurf);
+
 	if((tparams.CustomTimerEvent = SDL_RegisterEvents(1)) == -1){
 		printf("Failed to register customevent\n");
 		exit(-1);
 	}
 	tparams.timerlock = 0;
 
-	if(timerid = SDL_AddTimer(50, timercallback, (void *) &tparams))
+	if((timerid = SDL_AddTimer(TIMERINTERVAL, timercallback, (void *) &tparams)))
 		;
 	else
 		fprintf(stderr,"Timer failed to start\n");
@@ -78,25 +98,11 @@ int main(int argc, char *argv[]){
 
 	mysim = sim_CreateSimulation(WIDTH, HEIGHT, 50.0);
 
-	mysim->curr[0].height = 256;
-	mysim->curr[1].height = 256;
-	mysim->curr[2].height = 256;
-	mysim->curr[3].height = 256;
-	mysim->curr[4].height = 256;
-	mysim->curr[5].height = 256;
-	mysim->curr[8].height = 256;
-	mysim->curr[WIDTH * HEIGHT - 1].height = 256;
-	mysim->curr[WIDTH * HEIGHT - 2].height = 256;
-	mysim->curr[WIDTH * HEIGHT - 3].height = 256;
-	mysim->curr[WIDTH * HEIGHT - 4].height = 256;
-	mysim->curr[WIDTH * HEIGHT - 5].height = 256;
-	mysim->curr[WIDTH * HEIGHT - 6].height = 256;
-
-
 	int quit = 0;
 
 	while (!quit) {
 		drawGrid(ren, mysim, &gridviewport);
+		drawIso(ren, mysim, &isoviewport);
 		drawTools(ren, selected, hovered, &toolbox);
 		SDL_RenderPresent(ren);
 		while ((temp = SDL_PollEvent(&e)) != 0 && !quit) {
@@ -105,8 +111,13 @@ int main(int argc, char *argv[]){
 					quit = 1;
 					break;
 				case SDL_USEREVENT:
-					sim_step(mysim, TICKTIME);
-					printGrid(mysim);
+					updatetime = SDL_GetTicks();
+					for(i = 0; i < STEPSPERTICK; i++) {
+						sim_step(mysim, TICKTIME);
+					}
+					updatetime = SDL_GetTicks() - updatetime;
+					fprintf(stderr, "%.1f\n", (double)updatetime / WIDTH / HEIGHT * 1000);
+					//printGrid(mysim);
 					tparams.timerlock = 0;
 					break;
 				case SDL_MOUSEMOTION:
@@ -152,7 +163,6 @@ void printGrid(sim_Sim *s) {
 
 void drawGrid(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport) {
 	int i, j;
-	int drawflow = 1;
 	sim_Cell *cell;
 	SDL_Rect rect;
 	rect.w = CELLSIZE;
@@ -179,7 +189,7 @@ void drawGrid(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport) {
 
 		}
 	}	
-	if(drawflow)
+	if(DRAWFLOW)
 		for(i = 0; i < s->h; i++) {
 			for(j = 0; j < s->w; j++) {
 				cell = &(cellAt(j,i,s));
@@ -220,6 +230,52 @@ void drawGrid(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport) {
 					rect.y + CELLSIZE / 2 - len);
 			}
 		}
+}
+
+#define ISOWIDTH 16
+#define ISOHEIGHT 8
+void drawIso(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport) {
+	int i, j;
+	sim_Cell *cell;
+	SDL_Rect srcrect, dstrect,vertrect;
+
+	srcrect.x = 0;
+	srcrect.y = 0;
+	srcrect.w = ISOWIDTH;
+	srcrect.h = ISOHEIGHT;
+
+	dstrect.w = ISOWIDTH;
+	dstrect.h = ISOHEIGHT;
+
+	vertrect.w = ISOWIDTH / 2;
+
+
+	for(i = 0; i < s->h; i++) {
+		for(j = s->w - 1; j >= 0; j--) {
+			cell = &(cellAt(j,i,s));
+
+			dstrect.x = j * ISOWIDTH / 2 + i * ISOWIDTH / 2 + viewport->x;
+			dstrect.y = i * ISOHEIGHT / 2 - j * ISOHEIGHT / 2 + viewport->y;
+
+			vertrect.x = dstrect.x;
+			vertrect.y = dstrect.y + ISOHEIGHT / 2;
+			vertrect.h = cell->height / 1;
+			vertrect.y -= vertrect.h;
+
+			dstrect.y -= cell->height / 1;
+
+
+			SDL_SetRenderDrawColor(r, 0, 0, 100, 255);
+			SDL_RenderFillRect(r, &vertrect);
+
+			vertrect.x += ISOWIDTH / 2;
+			SDL_SetRenderDrawColor(r, 0, 0, 150, 255);
+			SDL_RenderFillRect(r, &vertrect);
+
+
+			SDL_RenderCopy(r, isoText, &srcrect, &dstrect);
+		}
+	}	
 }
 
 void drawTools(SDL_Renderer *r, int selected, int hovered, SDL_Rect *viewport){
@@ -292,7 +348,7 @@ void doMouseEvent(SDL_Event *e, int *selected, int *hovered, sim_Sim *s) {
 				loc.y -= gridviewport.y;
 				loc.x /= CELLSIZE;
 				loc.y /= CELLSIZE;
-				cellAt(loc.x, loc.y, s).height += 60;
+				cellAt(loc.x, loc.y, s).height += 200;
 				break;
 			case 1:
 				if(!clicked)
@@ -301,7 +357,7 @@ void doMouseEvent(SDL_Event *e, int *selected, int *hovered, sim_Sim *s) {
 				loc.y -= gridviewport.y;
 				loc.x /= CELLSIZE;
 				loc.y /= CELLSIZE;
-				cellAt(loc.x, loc.y, s).height -= 60;
+				cellAt(loc.x, loc.y, s).height = 0;
 				//Remove water
 
 				break;
@@ -337,7 +393,13 @@ SDL_Renderer *setupWindow() {
 		exit(-1);
 	}
 
-	SDL_Window *win = SDL_CreateWindow("Hello World!", SDL_WINDOWPOS_CENTERED, 100, 640, 480, SDL_WINDOW_SHOWN);
+	SDL_Window *win = SDL_CreateWindow(
+		"Hello World!", 
+		SDL_WINDOWPOS_CENTERED, 
+		100, 
+		WINDOW_W, 
+		WINDOW_H, 
+		SDL_WINDOW_SHOWN);
 	if (win == NULL){
 		printf("SDL_CreateWindow Error: %s",SDL_GetError());
 		SDL_Quit();
