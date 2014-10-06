@@ -10,6 +10,7 @@
 #define WIDTH 10
 #define HEIGHT 10
 #define CELLSIZE 32
+#define TICKTIME 0.1
 
 SDL_Renderer *setupWindow();
 Uint32 timercallback(Uint32 interval, void *param);
@@ -51,7 +52,7 @@ int main(int argc, char *argv[]){
 	gridviewport.w = WIDTH * CELLSIZE;
 	gridviewport.h = HEIGHT * CELLSIZE;
 
-	toolbox.x = 500;
+	toolbox.x = 0;
 	toolbox.y = 0;
 	toolbox.w = 100;
 	toolbox.h = 400;
@@ -69,7 +70,7 @@ int main(int argc, char *argv[]){
 	}
 	tparams.timerlock = 0;
 
-	if(timerid = SDL_AddTimer(1000, timercallback, (void *) &tparams))
+	if(timerid = SDL_AddTimer(50, timercallback, (void *) &tparams))
 		;
 	else
 		fprintf(stderr,"Timer failed to start\n");
@@ -104,7 +105,7 @@ int main(int argc, char *argv[]){
 					quit = 1;
 					break;
 				case SDL_USEREVENT:
-					sim_step(mysim);
+					sim_step(mysim, TICKTIME);
 					printGrid(mysim);
 					tparams.timerlock = 0;
 					break;
@@ -186,24 +187,32 @@ void drawGrid(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport) {
 				rect.y = i * CELLSIZE + viewport->y;
 				int len;
 				len = cell->flow[RT];
+				SDL_SetRenderDrawColor(r, len > 0 ? 0 : 255, 0, 0, 255); 
+				len = abs(len);
 				SDL_RenderDrawLine(r, 
 					rect.x + CELLSIZE / 2,
 					rect.y + CELLSIZE / 2,
 					rect.x + CELLSIZE / 2 + len,
 					rect.y + CELLSIZE / 2);
 				len = cell->flow[LF];
+				SDL_SetRenderDrawColor(r, len > 0 ? 0 : 255, 0, 0, 255); 
+				len = abs(len);
 				SDL_RenderDrawLine(r, 
 					rect.x + CELLSIZE / 2,
 					rect.y + CELLSIZE / 2,
 					rect.x + CELLSIZE / 2 - len,
 					rect.y + CELLSIZE / 2);
 				len = cell->flow[DN];
+				SDL_SetRenderDrawColor(r, len > 0 ? 0 : 255, 0, 0, 255); 
+				len = abs(len);
 				SDL_RenderDrawLine(r, 
 					rect.x + CELLSIZE / 2,
 					rect.y + CELLSIZE / 2,
 					rect.x + CELLSIZE / 2,
 					rect.y + CELLSIZE / 2 + len);
 				len = cell->flow[UP];
+				SDL_SetRenderDrawColor(r, len > 0 ? 0 : 255, 0, 0, 255); 
+				len = abs(len);
 				SDL_RenderDrawLine(r, 
 					rect.x + CELLSIZE / 2,
 					rect.y + CELLSIZE / 2,
@@ -283,7 +292,7 @@ void doMouseEvent(SDL_Event *e, int *selected, int *hovered, sim_Sim *s) {
 				loc.y -= gridviewport.y;
 				loc.x /= CELLSIZE;
 				loc.y /= CELLSIZE;
-				cellAt(loc.x, loc.y, s).height += 30;
+				cellAt(loc.x, loc.y, s).height += 60;
 				break;
 			case 1:
 				if(!clicked)
@@ -292,7 +301,7 @@ void doMouseEvent(SDL_Event *e, int *selected, int *hovered, sim_Sim *s) {
 				loc.y -= gridviewport.y;
 				loc.x /= CELLSIZE;
 				loc.y /= CELLSIZE;
-				cellAt(loc.x, loc.y, s).height -= 30;
+				cellAt(loc.x, loc.y, s).height -= 60;
 				//Remove water
 
 				break;

@@ -27,7 +27,7 @@ enum dirs {
 
 
 sim_Sim *sim_CreateSimulation(int w, int h, double startheight);
-void sim_step(sim_Sim *s);
+void sim_step(sim_Sim *s, double time);
 double sim_avgheight(sim_Sim *s);
 
 /*

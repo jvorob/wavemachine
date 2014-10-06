@@ -9,14 +9,16 @@ void _reset_buffer(sim_Sim *s);
 void _swap_buffers(sim_Sim *s);
 
 
+#define FLOWCONSTANT 10.0 //Multiplier for delta pressure -> flow
+#define FLOWEQUALIZINGRATE 1.0 //Multiplier for how easy it is to change flow
 
-void _createflow(sim_Sim *s, int x, int y) {
+
+void _createflow(sim_Sim *s, int x, int y, double time) {//time elapsed in seconds
 	int i;
 	sim_Cell *cc, *bc;//center (x,y)
 	sim_Cell *currs[4]; //current up, down, left right
 	sim_Cell *buffs[4]; //next tick up, down, left right
 	double heightdiff[4]; //>0 means flowing in
-	double timemult = 0.5;
 	double netflow;
 
 	cc = &cellAt			(x, y, s);
@@ -47,25 +49,26 @@ void _createflow(sim_Sim *s, int x, int y) {
 	}
 
 
+	//1 unit of flow = 1 height / second
+	//zflow =~ flow
 	netflow = 0;
 	for(i = 0; i < 4; i++) {
-		double temp = sqrt(fabs(heightdiff[i])) * (heightdiff[i] < 0 ? 1 : -1);
+		double temp = FLOWCONSTANT * sqrt(fabs(heightdiff[i])) * (heightdiff[i] < 0 ? 1 : -1);
 		double flowdiff;
 		flowdiff = temp - bc->flow[i];
-		bc->flow[i] += timemult * flowdiff;
+		bc->flow[i] += time * flowdiff;
 		netflow += bc->flow[i];
 	}
 
 }
 
 
-void _equalizeflow(sim_Sim *s, int x, int y) {
+void _equalizeflow(sim_Sim *s, int x, int y, double time) {
 	int i;
 	sim_Cell *cc, *bc;//center (x,y)
 	sim_Cell *currs[4]; //current up, down, left right
 	sim_Cell *buffs[4]; //next tick up, down, left right
 	double heightdiff[4]; //>0 means flowing in
-	double timemult = 0.5;
 	double netflow;
 
 	cc = &cellAt			(x, y, s);
@@ -100,13 +103,12 @@ void _equalizeflow(sim_Sim *s, int x, int y) {
 	}
 }
 
-void _movewater(sim_Sim *s, int x, int y) {
+void _movewater(sim_Sim *s, int x, int y, double time) {
 	int i;
 	sim_Cell *cc, *bc;//center (x,y)
 	sim_Cell *currs[4]; //current up, down, left right
 	sim_Cell *buffs[4]; //next tick up, down, left right
 	double heightdiff[4]; //>0 means flowing in
-	double timemult = 0.5;
 	double netflow;
 
 	cc = &cellAt			(x, y, s);
@@ -130,7 +132,7 @@ void _movewater(sim_Sim *s, int x, int y) {
 		currs[DN] = NULL;
 
 	for(i = 0; i < 4; i++) {
-		bc->height -= bc->flow[i];
+		bc->height -= bc->flow[i] * time;
 	}
 }
 
@@ -166,18 +168,20 @@ sim_Sim *sim_CreateSimulation(int w, int h, double startheight){
 	return temp;
 }
 
-void sim_step(sim_Sim *s){
+void sim_step(sim_Sim *s, double time){
 	int i, j;
 
 	_reset_buffer(s);
 
 	for(i = 0; i < s->h; i++) {
 		for(j = 0; j < s->w; j++) {
-			_createflow(s, j, i);
+			_createflow(s, j, i, time);
+
 			_swap_buffers(s);
 			_reset_buffer(s);
-			_equalizeflow(s, j, i);
-			_movewater(s, j, i);
+
+			_equalizeflow(s, j, i, time);
+			_movewater(s, j, i, time);
 		}
 	}	
 
