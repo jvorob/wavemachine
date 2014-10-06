@@ -349,6 +349,10 @@ void doMouseEvent(SDL_Event *e, int *selected, int *hovered, sim_Sim *s) {
 				loc.x /= CELLSIZE;
 				loc.y /= CELLSIZE;
 				cellAt(loc.x, loc.y, s).height += 200;
+				//cellAt(loc.x - 1, loc.y, s).height += 200;
+				//cellAt(loc.x + 1, loc.y, s).height += 200;
+				//cellAt(loc.x, loc.y - 1, s).height += 200;
+				//cellAt(loc.x, loc.y + 1, s).height += 200;
 				break;
 			case 1:
 				if(!clicked)
