@@ -9,8 +9,8 @@ void _reset_buffer(sim_Sim *s);
 void _swap_buffers(sim_Sim *s);
 
 
-#define FLOWCONSTANT 2.0 //Multiplier for delta pressure -> flow
-#define FLOWEQUALIZINGRATE 0.05 //Multiplier for how easy it is to change flow
+#define FLOWCONSTANT 10.0 //Multiplier for delta pressure -> flow
+#define FLOWEQUALIZINGRATE 0.1 //Multiplier for how easy it is to change flow
 
 
 void _createflow(sim_Sim *s, int x, int y, double time) {//time elapsed in seconds
@@ -176,10 +176,14 @@ void sim_step(sim_Sim *s, double time){
 	for(i = 0; i < s->h; i++) {
 		for(j = 0; j < s->w; j++) {
 			_createflow(s, j, i, time);
+		}
+	}	
 
-			_swap_buffers(s);
-			_reset_buffer(s);
+	_swap_buffers(s);
+	_reset_buffer(s);
 
+	for(i = 0; i < s->h; i++) {
+		for(j = 0; j < s->w; j++) {
 			_equalizeflow(s, j, i, time);
 			_movewater(s, j, i, time);
 		}

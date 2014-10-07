@@ -7,17 +7,20 @@
 
 #define pi 3.14159265358979323
 
-#define WIDTH 30
-#define HEIGHT 30
+#define WIDTH 60
+#define HEIGHT 60
 #define CELLSIZE 8
 #define TICKTIME 0.2
-#define TIMERINTERVAL 20
-#define STEPSPERTICK 3
+#define TIMERINTERVAL 50
+#define STEPSPERTICK 2
 
-#define WINDOW_W 1000
+#define WINDOW_W 1280
 #define WINDOW_H 800
 
 #define DRAWFLOW 0
+
+#define ISOWIDTH 16
+#define ISOHEIGHT 8
 
 SDL_Renderer *setupWindow();
 Uint32 timercallback(Uint32 interval, void *param);
@@ -66,8 +69,8 @@ int main(int argc, char *argv[]){
 	gridviewport.w = WIDTH * CELLSIZE;
 	gridviewport.h = HEIGHT * CELLSIZE;
 
-	isoviewport.x = 400;
-	isoviewport.y = 400;
+	isoviewport.x = 300;
+	isoviewport.y = 500;
 
 	toolbox.x = 0;
 	toolbox.y = 0;
@@ -96,7 +99,7 @@ int main(int argc, char *argv[]){
 		fprintf(stderr,"Timer failed to start\n");
 
 
-	mysim = sim_CreateSimulation(WIDTH, HEIGHT, 50.0);
+	mysim = sim_CreateSimulation(WIDTH, HEIGHT, 50.5);
 
 	int quit = 0;
 
@@ -116,7 +119,7 @@ int main(int argc, char *argv[]){
 						sim_step(mysim, TICKTIME);
 					}
 					updatetime = SDL_GetTicks() - updatetime;
-					fprintf(stderr, "%.1f\n", (double)updatetime / WIDTH / HEIGHT * 1000);
+					//fprintf(stderr, "%.1f\n", (double)updatetime / WIDTH / HEIGHT * 1000);
 					//printGrid(mysim);
 					tparams.timerlock = 0;
 					break;
@@ -232,8 +235,6 @@ void drawGrid(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport) {
 		}
 }
 
-#define ISOWIDTH 16
-#define ISOHEIGHT 8
 void drawIso(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport) {
 	int i, j;
 	sim_Cell *cell;
