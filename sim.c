@@ -42,12 +42,12 @@ void _createflow(sim_Sim *s, int x, int y, double time) {//time elapsed in secon
 		currs[DN] = NULL;
 
 	for(i = 0; i < 4; i++) {
-		if(currs[i]== NULL)
+		if(currs[i]== NULL) {
+			heightdiff[i] = 0;
 			continue;
-
+		}
 		heightdiff[i] = currs[i]->height - cc->height;
 	}
-
 
 	//1 unit of flow = 1 height / second
 	//zflow =~ flow
@@ -91,6 +91,7 @@ void _equalizeflow(sim_Sim *s, int x, int y, double time) {
 	if(y == s->h - 1)
 		currs[DN] = NULL;
 
+
 	for(i = 0; i < 4; i++) {
 		if(currs[i]== NULL)
 			continue;
@@ -130,6 +131,7 @@ void _movewater(sim_Sim *s, int x, int y, double time) {
 		currs[UP] = NULL;
 	if(y == s->h - 1)
 		currs[DN] = NULL;
+
 
 	for(i = 0; i < 4; i++) {
 		bc->height -= bc->flow[i] * time;

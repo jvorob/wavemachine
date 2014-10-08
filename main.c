@@ -14,13 +14,15 @@
 #define TIMERINTERVAL 50
 #define STEPSPERTICK 2
 
-#define WINDOW_W 1280
-#define WINDOW_H 800
+#define WINDOW_W 1600
+#define WINDOW_H 960
 
 #define DRAWFLOW 0
 
 #define ISOWIDTH 16
 #define ISOHEIGHT 8
+
+#define MAXDROPPEDFRAMES 10
 
 SDL_Renderer *setupWindow();
 Uint32 timercallback(Uint32 interval, void *param);
@@ -60,6 +62,8 @@ int main(int argc, char *argv[]){
 	SDL_TimerID timerid;
 	int selected, hovered;
 	Uint32 updatetime;
+	int tickspersecond;
+	int droppedframes;
 
 	selected = 0;
 	hovered = -1;
@@ -69,8 +73,8 @@ int main(int argc, char *argv[]){
 	gridviewport.w = WIDTH * CELLSIZE;
 	gridviewport.h = HEIGHT * CELLSIZE;
 
-	isoviewport.x = 300;
-	isoviewport.y = 500;
+	isoviewport.x = 500;
+	isoviewport.y = 600;
 
 	toolbox.x = 0;
 	toolbox.y = 0;
@@ -103,23 +107,41 @@ int main(int argc, char *argv[]){
 
 	int quit = 0;
 
+	updatetime = SDL_GetTicks();
+	tickspersecond = 0;
+	
+
 	while (!quit) {
+		droppedframes = MAXDROPPEDFRAMES;
+			
 		drawGrid(ren, mysim, &gridviewport);
 		drawIso(ren, mysim, &isoviewport);
 		drawTools(ren, selected, hovered, &toolbox);
 		SDL_RenderPresent(ren);
+
+		
+		//fprintf(stderr, "b");
+		if(SDL_GetTicks() - updatetime > 1000) {
+			updatetime = SDL_GetTicks();
+			fprintf(stderr, "%d\n", tickspersecond);
+			tickspersecond = 0;
+		}
+
+
 		while ((temp = SDL_PollEvent(&e)) != 0 && !quit) {
 			switch (e.type) {
 				case SDL_QUIT:
 					quit = 1;
 					break;
 				case SDL_USEREVENT:
-					updatetime = SDL_GetTicks();
+					if(!droppedframes)
+						break; //If it drops too many frames, clear the event queue
+					droppedframes--;
+					//fprintf(stderr, "c");
+					tickspersecond++;
 					for(i = 0; i < STEPSPERTICK; i++) {
 						sim_step(mysim, TICKTIME);
 					}
-					updatetime = SDL_GetTicks() - updatetime;
-					//fprintf(stderr, "%.1f\n", (double)updatetime / WIDTH / HEIGHT * 1000);
 					//printGrid(mysim);
 					tparams.timerlock = 0;
 					break;
@@ -260,10 +282,10 @@ void drawIso(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport) {
 
 			vertrect.x = dstrect.x;
 			vertrect.y = dstrect.y + ISOHEIGHT / 2;
-			vertrect.h = cell->height / 1;
+			vertrect.h = cell->height;
 			vertrect.y -= vertrect.h;
 
-			dstrect.y -= cell->height / 1;
+			dstrect.y -= cell->height;
 
 
 			SDL_SetRenderDrawColor(r, 0, 0, 100, 255);
@@ -384,10 +406,10 @@ Uint32 timercallback(Uint32 interval, void *param) {
 	SDL_zero(event);
 	event.type = tparams->CustomTimerEvent;
 
-	if(!tparams->timerlock){
+	//if(!tparams->timerlock){
 		SDL_PushEvent(&event);
 		tparams->timerlock = 1;
-	}
+	//}
 
 	return interval;
 }
