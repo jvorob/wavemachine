@@ -21,6 +21,7 @@
 
 #define ISOWIDTH 16
 #define ISOHEIGHT 8
+#define HEIGHTMULT 5
 
 #define MAXDROPPEDFRAMES 10
 
@@ -74,7 +75,7 @@ int main(int argc, char *argv[]){
 	gridviewport.h = HEIGHT * CELLSIZE;
 
 	isoviewport.x = 500;
-	isoviewport.y = 600;
+	isoviewport.y = 800;
 
 	toolbox.x = 0;
 	toolbox.y = 0;
@@ -282,10 +283,10 @@ void drawIso(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport) {
 
 			vertrect.x = dstrect.x;
 			vertrect.y = dstrect.y + ISOHEIGHT / 2;
-			vertrect.h = cell->height;
+			vertrect.h = cell->height * HEIGHTMULT;
 			vertrect.y -= vertrect.h;
 
-			dstrect.y -= cell->height;
+			dstrect.y -= cell->height * HEIGHTMULT;
 
 
 			SDL_SetRenderDrawColor(r, 0, 0, 100, 255);
