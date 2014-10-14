@@ -7,21 +7,21 @@
 
 #define pi 3.14159265358979323
 
-#define WIDTH 60
-#define HEIGHT 60
+#define WIDTH 50
+#define HEIGHT 50
 #define CELLSIZE 8
 #define TICKTIME 0.2
 #define TIMERINTERVAL 50
 #define STEPSPERTICK 2
 
-#define WINDOW_W 1600
+#define WINDOW_W 1400
 #define WINDOW_H 960
 
 #define DRAWFLOW 0
 
 #define ISOWIDTH 16
 #define ISOHEIGHT 8
-#define HEIGHTMULT 5
+#define HEIGHTMULT 3
 
 #define MAXDROPPEDFRAMES 10
 
@@ -30,8 +30,8 @@ Uint32 timercallback(Uint32 interval, void *param);
 void cleanup();
 void drawGrid(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport);
 void drawIso(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport);
-void drawTools(SDL_Renderer *r, int selected, int hovered, SDL_Rect *viewport);
-void doMouseEvent(SDL_Event *e, int *selected, int *hovered, sim_Sim *s);
+void drawTools(SDL_Renderer *r, struct _uistate *ui, SDL_Rect *viewport);
+void doMouseEvent(struct _uistate *ui, sim_Sim *s);
 void printGrid(sim_Sim *s);
 
 void starttimer();
@@ -48,9 +48,30 @@ struct timerparams {
 
 
 
+
 SDL_Texture *iconText;
 SDL_Texture *isoText;
 SDL_Rect gridviewport, isoviewport, toolbox;
+
+enum {
+	TOOL_ADD,
+	TOOL_REMOVE
+};
+
+enum {
+	MODE_NONE,
+	MODE_LINEAR,
+	MODE_RADIAL,
+	MODE_RAIN
+};
+
+struct _uistate {
+	int toolselected;
+	int demoselected;
+	char paused;
+	int hoverx, hovery;
+	char mouseinwindow;
+}  uistate;
 
 int main(int argc, char *argv[]){
 	int i;
@@ -61,26 +82,27 @@ int main(int argc, char *argv[]){
 	int temp;
 	SDL_Surface *iconSurf, *isoSurf;
 	SDL_TimerID timerid;
-	int selected, hovered;
 	Uint32 updatetime;
 	int tickspersecond;
 	int droppedframes;
 
-	selected = 0;
-	hovered = -1;
-
-	gridviewport.x = 100;
+	gridviewport.x = 0;
 	gridviewport.y = 0;
 	gridviewport.w = WIDTH * CELLSIZE;
 	gridviewport.h = HEIGHT * CELLSIZE;
 
 	isoviewport.x = 500;
-	isoviewport.y = 800;
+	isoviewport.y = 700;
 
 	toolbox.x = 0;
-	toolbox.y = 0;
-	toolbox.w = 100;
+	toolbox.y = 400;
+	toolbox.w = 400;
 	toolbox.h = 400;
+
+	uistate.toolselected = TOOL_ADD;
+	uistate.demoselected = MODE_NONE;
+	uistate.paused = 0;
+	uistate.mouseinwindow = 1;
 
 	ren = setupWindow();
 
@@ -117,10 +139,12 @@ int main(int argc, char *argv[]){
 
 	while (!quit) {
 		droppedframes = MAXDROPPEDFRAMES;
+
+		doMouseEvent(&uistate, mysim);
 			
 		drawGrid(ren, mysim, &gridviewport);
 		drawIso(ren, mysim, &isoviewport);
-		drawTools(ren, selected, hovered, &toolbox);
+		drawTools(ren, &uistate, &toolbox);
 		SDL_RenderPresent(ren);
 
 		
@@ -138,7 +162,7 @@ int main(int argc, char *argv[]){
 					quit = 1;
 					break;
 				case SDL_USEREVENT:
-					if(!droppedframes)
+					if(!droppedframes || uistate.paused)
 						break; //If it drops too many frames, clear the event queue
 					droppedframes--;
 					//fprintf(stderr, "c");
@@ -152,18 +176,19 @@ int main(int argc, char *argv[]){
 				case SDL_MOUSEMOTION:
 				case SDL_MOUSEBUTTONDOWN:
 				case SDL_MOUSEBUTTONUP:
-					doMouseEvent(&e, &selected, &hovered, mysim);
+					//doMouseEvent(&e, &selected, &hovered, mysim);
 					break;
 				case SDL_WINDOWEVENT:
 					switch (e.window.event) {
 						case SDL_WINDOWEVENT_ENTER:
+							uistate.mouseinwindow = 1;
 						case SDL_WINDOWEVENT_LEAVE:
-							doMouseEvent(&e, &selected, &hovered, mysim);
+							uistate.mouseinwindow = 0;
 							break;
 					}
 					break;
 				default:
-					fprintf(stderr, "UNKNOWN EVENT TYPE\n");
+					//fprintf(stderr, "UNKNOWN EVENT TYPE\n");
 					break;
 			}
 		}
@@ -305,7 +330,7 @@ void drawIso(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport) {
 	}	
 }
 
-void drawTools(SDL_Renderer *r, int selected, int hovered, SDL_Rect *viewport){
+void drawTools(SDL_Renderer *r, struct _uistate *ui, SDL_Rect *viewport) {
 	SDL_Rect temp;
 	temp.x = 0;//copy from origin on src texture
 	temp.y = 0;
@@ -313,62 +338,75 @@ void drawTools(SDL_Renderer *r, int selected, int hovered, SDL_Rect *viewport){
 	temp.h = viewport->h;
 	SDL_RenderCopy(r, iconText, &temp, viewport);
 
-	if(hovered != -1) {//Draw hover rectangle
+	if(ui->hoverx != -1) {//Draw hover rectangle
 		temp.x = viewport->x;
 		temp.y = viewport->y;
 		temp.w = 100;
 		temp.h = 100;
 
-		temp.y += 100 * hovered;
+		temp.y += 100 * ui->hovery;
+		temp.x += 100 * ui->hoverx;
 
 		SDL_SetRenderDrawColor(r, 255, 0, 0, 255);
 		SDL_RenderDrawRect(r, &temp);
 	}
 
-	temp.x = viewport->x;
-	temp.y = viewport->y;
 	temp.w = 100;
 	temp.h = 100;
 
-	temp.y += 100 * selected;
-
+	temp.x = viewport->x;
+	temp.y = viewport->y + 100 * ui->toolselected;
 	SDL_SetRenderDrawColor(r, 0, 0, 255, 100);
 	SDL_RenderFillRect(r, &temp);
+
+
+	temp.x = viewport->x + 200;
+	temp.y = viewport->y + 100 * ui->demoselected;
+	SDL_SetRenderDrawColor(r, 0, 0, 255, 100);
+	SDL_RenderFillRect(r, &temp);
+
+	if(ui->paused) {
+		temp.x = viewport->x + 300;
+		temp.y = viewport->y;
+		SDL_SetRenderDrawColor(r, 0, 0, 255, 100);
+		SDL_RenderFillRect(r, &temp);
+	}
 }
 
-void doMouseEvent(SDL_Event *e, int *selected, int *hovered, sim_Sim *s) {
+void doMouseEvent(struct _uistate *ui, sim_Sim *s) {
 	static int laststate, clicked;
 	Uint32 buttons;
 	SDL_Point loc;
 	
 	buttons = SDL_GetMouseState(&(loc.x), &(loc.y));
 	clicked = laststate & SDL_BUTTON(SDL_BUTTON_LEFT) && !(buttons & SDL_BUTTON(SDL_BUTTON_LEFT));
+	buttons &= SDL_BUTTON(SDL_BUTTON_LEFT);
 
-	switch (e->type) {
-		case SDL_WINDOWEVENT:
-			*hovered = -1;
-			if(e->window.event == SDL_WINDOWEVENT_LEAVE) {
-				loc.x = loc.y = -1;//Mouse is outside the window
-			}
-				break;
-		case SDL_MOUSEMOTION:
-		case SDL_MOUSEBUTTONDOWN:
-		case SDL_MOUSEBUTTONUP:
-			break;
-		default:
-			break;
-	}
+	ui->hoverx = -1;
 
-	*hovered = -1;
 	if(SDL_PointInRect(&loc, &toolbox)) {
-		*hovered = (loc.y - toolbox.y) / 100;
-		if(buttons & SDL_BUTTON(SDL_BUTTON_LEFT))
-			*selected = *hovered;
+		ui->hovery = (loc.y - toolbox.y) / 100;
+		ui->hoverx = (loc.x - toolbox.x) / 100;
+		switch(ui->hoverx) {
+			case 0://Tools
+				if(buttons)
+					ui->toolselected = ui->hovery;
+				break;
+			case 1://None
+				break;
+			case 2://demo
+				if(buttons)
+					ui->demoselected = ui->hovery;
+				break;
+			case 3://Pause
+				if(clicked && ui->hovery == 0)
+					ui->paused = !ui->paused;
+				break;
+		}
 		//Each button in the toolbox is 100px high
-		
 	} else if(SDL_PointInRect(&loc, &gridviewport)) {
-		switch(*selected) {
-			case 0: //Add water
+		switch(ui->toolselected) {
+			case TOOL_ADD: //Add water
 				if(!clicked)
 					break;
 				loc.x -= gridviewport.x;
@@ -381,7 +419,7 @@ void doMouseEvent(SDL_Event *e, int *selected, int *hovered, sim_Sim *s) {
 				//cellAt(loc.x, loc.y - 1, s).height += 200;
 				//cellAt(loc.x, loc.y + 1, s).height += 200;
 				break;
-			case 1:
+			case TOOL_REMOVE:
 				if(!clicked)
 					break;
 				loc.x -= gridviewport.x;
@@ -425,7 +463,7 @@ SDL_Renderer *setupWindow() {
 	}
 
 	SDL_Window *win = SDL_CreateWindow(
-		"Hello World!", 
+		"Wave Machine", 
 		SDL_WINDOWPOS_CENTERED, 
 		100, 
 		WINDOW_W, 
