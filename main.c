@@ -86,7 +86,10 @@ int main(int argc, char *argv[]){
 
 	SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
 
-	iconSurf = SDL_LoadBMP("icons.bmp");
+	if((iconSurf = SDL_LoadBMP("icons.bmp")) == NULL) {
+		printf("Failed to load icons.bmp");
+		exit(-1);
+	}
 	iconText = SDL_CreateTextureFromSurface(ren, iconSurf);
 
 	isoSurf = SDL_LoadBMP("tile.bmp");
