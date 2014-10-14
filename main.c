@@ -25,6 +25,15 @@
 
 #define MAXDROPPEDFRAMES 10
 
+#define RAIN_MILLIS 100
+#define RAIN_AMT 30
+#define RADIAL_AMT 100
+#define RADIAL_PERIOD 1950
+#define LINEAR_AMT 30
+#define LINEAR_PERIOD 1950
+
+#define DEBUGPRINT 0
+
 SDL_Renderer *setupWindow();
 Uint32 timercallback(Uint32 interval, void *param);
 void cleanup();
@@ -32,6 +41,7 @@ void drawGrid(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport);
 void drawIso(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport);
 void drawTools(SDL_Renderer *r, struct _uistate *ui, SDL_Rect *viewport);
 void doMouseEvent(struct _uistate *ui, sim_Sim *s);
+void doDemos(int current, sim_Sim *s);
 void printGrid(sim_Sim *s);
 
 void starttimer();
@@ -151,7 +161,8 @@ int main(int argc, char *argv[]){
 		//fprintf(stderr, "b");
 		if(SDL_GetTicks() - updatetime > 1000) {
 			updatetime = SDL_GetTicks();
-			fprintf(stderr, "%d\n", tickspersecond);
+			if(DEBUGPRINT)
+				fprintf(stderr, "%d\n", tickspersecond);
 			tickspersecond = 0;
 		}
 
@@ -168,6 +179,7 @@ int main(int argc, char *argv[]){
 					//fprintf(stderr, "c");
 					tickspersecond++;
 					for(i = 0; i < STEPSPERTICK; i++) {
+						doDemos(uistate.demoselected, mysim);
 						sim_step(mysim, TICKTIME);
 					}
 					//printGrid(mysim);
@@ -188,7 +200,8 @@ int main(int argc, char *argv[]){
 					}
 					break;
 				default:
-					//fprintf(stderr, "UNKNOWN EVENT TYPE\n");
+					if(DEBUGPRINT) 
+						fprintf(stderr, "UNKNOWN EVENT TYPE\n");
 					break;
 			}
 		}
@@ -201,18 +214,17 @@ int main(int argc, char *argv[]){
 
 void printGrid(sim_Sim *s) {
 	int i, j;
-	int debugprint = 1;
 	sim_Cell *cell;
 
 	for(i = 0; i < s->h; i++) {
 		for(j = 0; j < s->w; j++) {
 			cell = &(cellAt(j,i,s));
-			if(debugprint) fprintf(stderr,"%4.0lf ", cell->height);
+			fprintf(stderr,"%4.0lf ", cell->height);
 		}
-		if(debugprint) fprintf(stderr,"\n");
+		fprintf(stderr,"\n");
 	}	
-	if(debugprint) fprintf(stderr, "\nAvgheight:%lf\n---\n\n", sim_avgheight(s));
-	if(debugprint) fprintf(stderr, "\n---\n\n");
+	fprintf(stderr, "\nAvgheight:%lf\n---\n\n", sim_avgheight(s));
+	fprintf(stderr, "\n---\n\n");
 }
 
 void drawGrid(SDL_Renderer *r, sim_Sim *s, SDL_Rect *viewport) {
@@ -384,7 +396,7 @@ void doMouseEvent(struct _uistate *ui, sim_Sim *s) {
 
 	ui->hoverx = -1;
 
-	if(SDL_PointInRect(&loc, &toolbox)) {
+	if(SDL_PointInRect(&loc, &toolbox)) {//Handle clicks in the ui
 		ui->hovery = (loc.y - toolbox.y) / 100;
 		ui->hoverx = (loc.x - toolbox.x) / 100;
 		switch(ui->hoverx) {
@@ -404,7 +416,7 @@ void doMouseEvent(struct _uistate *ui, sim_Sim *s) {
 				break;
 		}
 		//Each button in the toolbox is 100px high
-	} else if(SDL_PointInRect(&loc, &gridviewport)) {
+	} else if(SDL_PointInRect(&loc, &gridviewport)) {//Handle clicks in the wave grid
 		switch(ui->toolselected) {
 			case TOOL_ADD: //Add water
 				if(!clicked)
@@ -431,11 +443,50 @@ void doMouseEvent(struct _uistate *ui, sim_Sim *s) {
 
 				break;
 		}
-	} else {
+	} else {//???
 		
 	}
 
 	laststate = buttons;
+
+}
+
+
+void doDemos(int current, sim_Sim *s) {
+	//Handle demos
+	switch(current) {
+		case MODE_NONE:
+			break;
+		case MODE_LINEAR://NOT IMPLEMENTED
+			static int lineartimer = 0;
+			int i;
+			lineartimer += TIMERINTERVAL;
+			while(lineartimer > LINEAR_PERIOD) {
+				lineartimer -= LINEAR_PERIOD;	
+				//Run once ever RAIN_MILLIS milliseconds
+				for(i = 0; i < WIDTH; i++)
+					cellAt(i, 0, s).height += LINEAR_AMT;
+			}
+			break;
+		case MODE_RADIAL://NOT IMPLEMENTED
+			static int radialtimer = 0;
+			radialtimer += TIMERINTERVAL;
+			while(radialtimer > RADIAL_PERIOD) {
+				radialtimer -= RADIAL_PERIOD;	
+				//Run once ever RAIN_MILLIS milliseconds
+				cellAt(WIDTH / 2, HEIGHT / 2, s).height += RADIAL_AMT;
+			}
+			break;
+		case MODE_RAIN:
+			static int raintimer = 0;
+			raintimer += TIMERINTERVAL;
+			while(raintimer > RAIN_MILLIS) {
+				raintimer -= RAIN_MILLIS;	
+				//Run once ever RAIN_MILLIS milliseconds
+				cellAt(rand() % WIDTH, rand() % HEIGHT, s).height += RAIN_AMT;
+			}
+			break;
+	}
 }
 
 void cleanup() {
